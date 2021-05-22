@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    
+</head>
+<script src="pixi.min.js"></script>
+<body>    
+    <script type="text/javascript">
+      let type = "WebGL"
+      if(!PIXI.utils.isWebGLSupported()){
+        type = "canvas"
+      }
+    
+      PIXI.utils.sayHello(type) // chek if it works
+
+      let Application = PIXI.Application,
+        loader = PIXI.loader
+        resources = PIXI.loader.resources
+        Sprite = PIXI.Sprite
+        TextureCache = PIXI.TextureCache
+        Rectangle = PIXI.Rectangle 
+        Container =  PIXI.Container
+        Text = PIXI.Text
+        TextStyle = PIXI.TextStyle
+
+      let app = new Application({  
+        width: 695, 
+        height: 800, 
+        resolution: 1,
+        antialias: true,
+        transparent: false,
+      })
+
+      const levels = 25
+
+      //app.renderer.backgroundColor = 0x1DA7C5
+      //app.renderer.autoResize = true
+      //app.renderer.resize(window.innerWidth, window.innerHeight) full screen      
+
+      document.body.append(app.view)
+
+      loader
+        .add("img/flappy_birds.json")
+        .load(setup)
+
+      let bird, pipe_up, pipe_down, bckgrnd, id  
+
+      function setup() {
+
+        let gameScene = new Container()
+        app.stage.addChild(gameScene)
+
+        let gameOverScene = new Container()
+        app.stage.addChild(gameOverScene) 
+        gameOverScene.visible = false 
+
+        let skyTexture = TextureCache["sky.png"]
+        bckgrnd = new Sprite(skyTexture);
+        gameScene.addChild(bckgrnd)
+
+        id = PIXI.loader.resources["img/flappy_birds.json"].textures 
+  
+        bird = new Sprite(id["cartoon-bird.png"])
+        
+        bird.x = app.stage.width/2 - bird.width / 2
+        bird.y = app.stage.height/2 - bird.height
+        bird.vy = 0
+        bird.scale.x = 0.8
+        bird.scale.y = 0.8
+        gameScene.addChild(bird) 
+         
+        
+        let obstacles = new Container()
+        
+        for (let i=0; i<levels; i++) {           
+          let pipes = new Container()                
+                 
+          pipe_down = new Sprite(id["pipe_down.png"])
+          pipe_up = new Sprite(id["pipe_up.png"])
+          let step = pipe_down.width * (i + 1) * 2 + app.stage.width/2
+          let space = randomCoord()*20
+          pipe_down.y = 0 - space - bird.height*1.5
+          pipe_up.y = app.stage.height/2 - space
+          pipe_down.x = step
+          pipe_up.x = step
+          pipes.addChild(pipe_up)
+          pipes.addChild(pipe_down)          
+          
+          obstacles.addChild(pipes)
+         
+        }
+
+        gameScene.addChild(obstacles)
+
+        let style = new TextStyle({
+          fontFamily: "Futura",
+          fontSize: 64,
+          fill: "white"
+          })
+
+        message = new Text("Game over!", style)        
+        message.x = 100
+        message.y = app.stage.height / 2 
+        gameOverScene.addChild(message)
+        
+        let up = keyboard("ArrowUp"),
+        down = keyboard("ArrowDown")
+
+        up.press = () => bird.vy = -5
+        up.release = () => {
+          if (!down.isDown) {
+            bird.vy = 0
+          }
+        }
+
+        down.press = () =>  bird.vy = 5  
+        down.release = () => {
+          if (!up.isDown ) {
+            bird.vy = 0
+          }
+        }
+
+        state = play
+      
+        //Start the game loop 
+        app.ticker.add(delta => gameLoop(delta))      
+
+
+        function gameLoop(delta) {
+         state (delta)
+        }
+
+        function play(delta) {
+          //bird.vy = 1
+          bird.y += bird.vy
+          obstacles.x += -2.5
+
+          contain(bird, {y: 10, height: 780})
+
+          let birdHit = false
+
+          if(hitTestRectangle(bird, pipe_down)) {
+            birdHit = true;
+          }
+
+          if(birdHit) {
+            state = end
+          }
+        }
+
+        function end() {
+          gameScene.visible = false
+          gameOverScene.visible = true
+        }
+
+        
+    }      
+
+    function randomCoord() {
+      return Math.round(Math.random()*10)
+    }  
+
+    function keyboard(value) {
+      let key = {};
+      key.value = value;
+      key.isDown = false;
+      key.isUp = true;
+      key.press = undefined;
+      key.release = undefined;
+      //The `downHandler`
+      key.downHandler = event => {
+        if (event.key === key.value) {
+          if (key.isUp && key.press) key.press();
+          key.isDown = true;
+          key.isUp = false;
+          event.preventDefault();
+        }
+      };
+
+      //The `upHandler`
+      key.upHandler = event => {
+        if (event.key === key.value) {
+          if (key.isDown && key.release) key.release();
+          key.isDown = false;
+          key.isUp = true;
+          event.preventDefault();
+        }
+      };
+
+      //Attach event listeners
+      const downListener = key.downHandler.bind(key);
+      const upListener = key.upHandler.bind(key);
+      
+      window.addEventListener(
+        "keydown", downListener, false
+      );
+      window.addEventListener(
+        "keyup", upListener, false
+      );
+      
+      // Detach event listeners
+      key.unsubscribe = () => {
+        window.removeEventListener("keydown", downListener);
+        window.removeEventListener("keyup", upListener);
+      };
+      
+      return key;
+    } 
+    function contain(sprite, container) {
+
+      let collision = undefined
+
+      if (sprite.y < container.y) {
+        sprite.y = container.y
+        collision = "top"
+      }
+
+      if (sprite.y + sprite.height > container.height) {
+        sprite.y = container.height - sprite.height
+        collision = "bottom"
+      }
+
+      return collision
+      }
+
+    function hitTestRectangle(r1, r2) {
+
+      let hit, combinedHalfWidths, combinedHalfHeights, vx, vy;
+
+      //hit will determine whether there's a collision
+      hit = false;
+
+      //Find the center points of each sprite
+      r1.centerX = r1.x + r1.width / 2;
+      r1.centerY = r1.y + r1.height / 2;
+      r2.centerX = r2.x + r2.width / 2;
+      r2.centerY = r2.y + r2.height / 2;
+
+      //Find the half-widths and half-heights of each sprite
+      r1.halfWidth = r1.width / 2;
+      r1.halfHeight = r1.height / 2;
+      r2.halfWidth = r2.width / 2;
+      r2.halfHeight = r2.height / 2;
+
+      //Calculate the distance vector between the sprites
+      vx = r1.centerX - r2.centerX;
+      vy = r1.centerY - r2.centerY;
+
+      //Figure out the combined half-widths and half-heights
+      combinedHalfWidths = r1.halfWidth + r2.halfWidth;
+      combinedHalfHeights = r1.halfHeight + r2.halfHeight;
+
+      //Check for a collision on the x axis
+      if (Math.abs(vx) < combinedHalfWidths) {
+
+        //A collision might be occurring. Check for a collision on the y axis
+        if (Math.abs(vy) < combinedHalfHeights) {
+
+          //There's definitely a collision happening
+          hit = true;
+        } else {
+
+          //There's no collision on the y axis
+          hit = false;
+        }
+      } else {
+
+        //There's no collision on the x axis
+        hit = false;
+      }
+
+      //`hit` will be either `true` or `false`
+      return hit;
+      };
+    </script>    
+</body>
+</html>
