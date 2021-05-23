@@ -69,32 +69,36 @@
         bird.x = app.stage.width/2 - bird.width / 2
         bird.y = app.stage.height/2 - bird.height
         bird.vy = 0
-        bird.scale.x = 0.8
-        bird.scale.y = 0.8
+        bird.scale.x = 0.6
+        bird.scale.y = 0.6
         gameScene.addChild(bird) 
          
         
-        let obstacles = new Container()
+        let pipes_down = []
+        let pipes_up = []
         
-        for (let i=0; i<levels; i++) {           
-          let pipes = new Container()                
+        let halfWidth = app.stage.width / 2
+
+        for (let i=0; i<levels; i++) { 
                  
-          pipe_down = new Sprite(id["pipe_down.png"])
-          pipe_up = new Sprite(id["pipe_up.png"])
-          let step = pipe_down.width * (i + 1) * 2 + app.stage.width/2
+          let pipe_down = new Sprite(id["pipe_down.png"])
+          let pipe_up = new Sprite(id["pipe_up.png"])          
+          let step = (i + 1) * pipe_down.width * 2.25 + halfWidth
           let space = randomCoord()*20
-          pipe_down.y = 0 - space - bird.height*1.5
-          pipe_up.y = app.stage.height/2 - space
+          pipe_down.y = 0 - space
+          pipe_up.y = pipe_down.y + bird.width * 1.5 + pipe_up.height
           pipe_down.x = step
           pipe_up.x = step
-          pipes.addChild(pipe_up)
-          pipes.addChild(pipe_down)          
-          
-          obstacles.addChild(pipes)
-         
-        }
 
-        gameScene.addChild(obstacles)
+          pipe_down.vx = -2.5
+          pipe_up.vx = -2.5
+
+          pipes_down.push(pipe_down)
+          pipes_up.push(pipe_up)
+          
+          gameScene.addChild(pipe_down) 
+          gameScene.addChild(pipe_up)        
+        }
 
         let style = new TextStyle({
           fontFamily: "Futura",
@@ -103,8 +107,8 @@
           })
 
         message = new Text("Game over!", style)        
-        message.x = 100
-        message.y = app.stage.height / 2 
+        message.x = 200
+        message.y = 200
         gameOverScene.addChild(message)
         
         let up = keyboard("ArrowUp"),
@@ -136,16 +140,21 @@
 
         function play(delta) {
           //bird.vy = 1
-          bird.y += bird.vy
-          obstacles.x += -2.5
+          bird.y += bird.vy          
 
           contain(bird, {y: 10, height: 780})
 
           let birdHit = false
 
-          if(hitTestRectangle(bird, pipe_down)) {
-            birdHit = true;
-          }
+          pipes_down.forEach((item) => {
+            item.x += item.vx;
+            if (hitTestRectangle(bird, item)) birdHit = true
+          })
+
+          pipes_up.forEach((item) => {
+            item.x += item.vx;
+            if (hitTestRectangle(bird, item)) birdHit = true
+          })          
 
           if(birdHit) {
             state = end
@@ -156,7 +165,6 @@
           gameScene.visible = false
           gameOverScene.visible = true
         }
-
         
     }      
 
